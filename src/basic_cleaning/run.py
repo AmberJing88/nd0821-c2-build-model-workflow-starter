@@ -14,7 +14,7 @@ logger = logging.getLogger()
 
 def go(args):
 
-    run = wandb.init(job_type="job_type [my_step]: basic_cleaning")
+    run = wandb.init(project="nyc_airbnb", job_type="basic_cleaning")
     run.config.update(args)
 
     # Download input artifact. This will also log that this script is using this
@@ -22,7 +22,7 @@ def go(args):
     # artifact_local_path = run.use_artifact(args.input_artifact).file()
 
     logger.info("Fetching artifact")
-    artifact - run.use_artifact(args.input_artifact)
+    artifact = run.use_artifact(args.input_artifact)
     local_path = artifact.file()
     
     logger.info("Reading dataframe")
@@ -30,19 +30,21 @@ def go(args):
     
     # Pre-processing
     logger.info("Starting pre-processing")
-    df = df.drop_duplicate().reset_index(drop=True)
+    df = df.drop_duplicates().reset_index(drop=True)
     
     # need to modify with new feature in project
-    df["title"].fillna(value='', inplace=True)
-    df['song_name'].fillna(value='', inplace=True)
-    df['text_feature'] = df['title'] + " " + df["song_name"]
+    args.min_price = 10
+    args.max_price = 350
+    idx = df['price'].between(args.min_price, args.max_price)
+    df = df[idx].copy()
+    df['last_review'] = pd.to_datetime(df['last_review'])
     
-    outfile = args.artifact_name
-    df.to_csv(outfile)
+    outfile = "clean_sample.csv"
+    df.to_csv(outfile, index=False)
     artifact = wandb.Artifact(
-        name=args.artifact_name, 
-        type=args.artifact_type,
-        description=args.artifact_description
+        args.output_artifact, 
+        type=args.output_type,
+        description=args.output_description
     )
     artifact.add_file(outfile)
     
@@ -52,36 +54,52 @@ def go(args):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="short_description [My step]: This steps cleans the data")
+    parser = argparse.ArgumentParser(description="This steps cleans the data")
 
 
     parser.add_argument(
-        "--parameters [parameter1", 
-        type=## INSERT TYPE HERE: str, float or int,
-        help=## INSERT DESCRIPTION HERE,
+        "--input_artifact", 
+        type=str,
+        help="fully-qulified name for the input artifact",
         required=True
     )
 
     parser.add_argument(
-        "--parameter2]: parameter1", 
-        type=## INSERT TYPE HERE: str, float or int,
-        help=## INSERT DESCRIPTION HERE,
+        "--output_artifact", 
+        type=str,
+        help="name for the output artifact",
         required=True
     )
 
     parser.add_argument(
-        "--parameter2", 
-        type=## INSERT TYPE HERE: str, float or int,
-        help=## INSERT DESCRIPTION HERE,
+        "--output_type", 
+        type=str,
+        help="type for the output artifact",
         required=True
     )
 
     parser.add_argument(
-        "--parameter3", 
-        type=## INSERT TYPE HERE: str, float or int,
-        help=## INSERT DESCRIPTION HERE,
+        "--output_description", 
+        type=str,
+        help="description for the output artifact",
         required=True
     )
+    
+    parser.add_argument(
+        "--min_price", 
+        type=float,
+        help="minum price of houese",
+        required=True
+    )
+
+    parser.add_argument(
+        "--max_price", 
+        type=float,
+        help="maximum price of houses",
+        required=True
+    )
+
+
 
 
     args = parser.parse_args()
